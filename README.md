@@ -97,3 +97,76 @@ Manifest file addition:
         "128": "images/icon.png"
     }
 ```
+
+## Interactivity
+
+Even though my basic goal was met, I figured I could take it a little further. The next step is to be able to toggle the visibility of the Messaging window.
+
+Since content scripts can not handle interactivity (except in the content), we'll add a background script and messaging between the content and the background scripts.
+
+First we'll create the background script. In manifest version 3 the script **must be** located in the root directory (same where `manifest.json` resides). So create a file `background.js`, and add the following content to it:
+
+```JavaScript
+let contentJs
+
+chrome.runtime.onConnect.addListener(function(content) {
+    if (content.name !== 'hidein') {
+            console.log("Unknown content handler calling")
+            return
+    }
+    content.onMessage.addListener(function(msg) {
+            console.log("Background received message", JSON.stringify(msg))
+    })
+    content.postMessage({msg: 'sent from background'})
+    contentJs = content
+})
+
+chrome.action.onClicked.addListener(function(tab) {
+    console.log("Browser action clicked")
+    if (contentJs) {
+        contentJs.postMessage({msg: 'Browser action clicked'})
+    }
+})
+```
+
+The event listener for connecting will be called from the content, and we have placeholder code that will log print if we receive a message from the content, but in any case will immediately send a message back to the caller. The action's event handler will send a message to the caller when the extension's icon is clicked.
+
+
+We also need to add a couple of sections to the manifest file. One to register the background script, and another that declares that we can perform an action (click) on the extension's icon. Add the following to the manifest file:
+
+```JSON
+    "permissions": ["scripting"],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_icon": {
+            "16": "images/icon.png",
+            "32": "images/icon.png",
+            "48": "images/icon.png",
+            "128": "images/icon.png"
+        }    
+    }
+```
+
+Now we just need to add code to the `content.js` file to complete the messaging sceleton. Add the following to the SIAF function:
+
+```JavaScript
+    var background = chrome.runtime.connect({ name: 'hidein' });
+    background.onMessage.addListener(function (msg) {
+        console.log("Got message from background", JSON.stringify(msg))
+    })
+```
+
+Now we can see if our code works:
+
+1. Reload the extension,
+1. open your Linked In page, and reload. You should see the console.log prints for hiding the page, but also 
+    ```
+    Got message from background {"msg":"sent from background"}
+    ```
+1. Check also that the background script is called. To do this you open the page for extensions (chrome://extensions), and click on your extension's *Inspect views service worker* link. That should open a new window showing the service worker's console. ![Extension screenshot](docs/extension_logs.png)
+1. Switch to linked in page, and click on the extension icon in your browser's toolbar. That should result in console prints both to your linked in page's console, as well as the service worker's console.
+
+If all went fine we should now have a skeleton with communication between the content and the service worker.
+

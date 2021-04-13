@@ -1,6 +1,10 @@
 
 (function () {
     console.log("Executing content!")
+    var background = chrome.runtime.connect({ name: 'hidein' });
+    background.onMessage.addListener(function (msg) {
+        console.log("Got message from background", JSON.stringify(msg))
+    })
     let tries = 0
     const hideBox = () => {
         const box = document.getElementById('msg-overlay')
