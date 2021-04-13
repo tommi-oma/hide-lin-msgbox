@@ -165,8 +165,29 @@ Now we can see if our code works:
     ```
     Got message from background {"msg":"sent from background"}
     ```
-1. Check also that the background script is called. To do this you open the page for extensions (chrome://extensions), and click on your extension's *Inspect views service worker* link. That should open a new window showing the service worker's console. ![Extension screenshot](docs/extension_logs.png)
+1. Check also that the background script is called. To do this you open the page for extensions (chrome://extensions), and click on your extension's *Inspect views service worker* link. That should open a new window showing the service worker's console. 
+![Extension screenshot](docs/extension_logs.png)
 1. Switch to linked in page, and click on the extension icon in your browser's toolbar. That should result in console prints both to your linked in page's console, as well as the service worker's console.
 
 If all went fine we should now have a skeleton with communication between the content and the service worker.
+
+The next step is to have the communication implement the toggling of the message window. That can be implemented by introducing a new `toggleBoxVisibility` function, and calling that from the event handler for receiving a message from the service worker.
+
+```JavaScript
+    const toggleBoxVisibility = () => {
+        const box = document.getElementById('msg-overlay')
+        if (!box) {
+            console.error("Message box does not exist, aborting")
+            return
+        }
+        if (box.style.display === 'none') {
+            box.style.display = 'flex'
+        } else {
+            box.style.display = 'none'
+        }
+        console.log("Changed visibility to", box.style.display)
+    }
+```
+
+Now when you reload the extension, reload the Linked in page, you should be able to hide and show the Messaging window by clicking on the extension icon in the browser's toolbar.
 
