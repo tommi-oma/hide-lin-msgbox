@@ -1,6 +1,5 @@
 
 (function () {
-    console.log("Executing content!")
     const toggleBoxVisibility = () => {
         const box = document.getElementById('msg-overlay')
         if (!box) {
@@ -9,33 +8,34 @@
         }
         if (box.style.display === 'none') {
             box.style.display = 'flex'
+            chrome.storage.sync.set({showbox: true}, function() { });
         } else {
             box.style.display = 'none'
+            chrome.storage.sync.set({showbox: 0}, function() { });
         }
-        console.log("Changed visibility to", box.style.display)
     }
-    var background = chrome.runtime.connect({ name: 'hidein' });
+    const background = chrome.runtime.connect({ name: 'hidein' });
     background.onMessage.addListener(function (msg) {
-        console.log("Got message from background", JSON.stringify(msg))
         toggleBoxVisibility()
     })
-    let tries = 0
-    const hideBox = () => {
-        const box = document.getElementById('msg-overlay')
-        if (box) {
-            console.log("Hiding")
-            box.style.display = 'none'
-        } else {
-            console.log("No box found")
-            if (++tries < 10) {
-                console.log("Retry #", tries)
-                setTimeout(hideBox, 1000)
-            } else {
-                console.log("No retry, tried", tries)
+    chrome.storage.sync.get(['showbox'], function(result) {
+        if (!result.showbox) {
+            let tries = 0
+            const hideBox = () => {
+                const box = document.getElementById('msg-overlay')
+                if (box) {
+                    box.style.display = 'none'
+                } else {
+                    if (++tries < 10) {
+                        setTimeout(hideBox, 1000)
+                    } else {
+                        console.warning(`Failed to hide messaging window after ${tries} tries`)
+                    }
+                }
+    
             }
+            hideBox();
         }
-
-    }
-    hideBox();
+    });
 
 })()

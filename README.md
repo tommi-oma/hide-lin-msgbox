@@ -166,7 +166,7 @@ Now we can see if our code works:
     Got message from background {"msg":"sent from background"}
     ```
 1. Check also that the background script is called. To do this you open the page for extensions (chrome://extensions), and click on your extension's *Inspect views service worker* link. That should open a new window showing the service worker's console. 
-![Extension screenshot](docs/extension_logs.png)
+    ![Extension screenshot](docs/extension_logs.png)
 1. Switch to linked in page, and click on the extension icon in your browser's toolbar. That should result in console prints both to your linked in page's console, as well as the service worker's console.
 
 If all went fine we should now have a skeleton with communication between the content and the service worker.
@@ -191,3 +191,83 @@ The next step is to have the communication implement the toggling of the message
 
 Now when you reload the extension, reload the Linked in page, you should be able to hide and show the Messaging window by clicking on the extension icon in the browser's toolbar.
 
+## Add persistence
+
+As a final task we'll store the state to local storage, so we can show/hide the messaging window depending on how it was the last time the extension was used. With this we'll also get rid of console prints and some extra code we really don't use.
+
+First the manifest file needs to be updated to include a permission to use the storage.
+```JSON
+    "permissions": ["scripting", "storage"],
+```
+
+The background script does not contain anything new, it is merely cleaned up.
+
+The content script is modified to use the local storage. Just to make sure, the whole file:
+
+```JavaScript
+let contentJs
+
+chrome.runtime.onConnect.addListener(function(content) {
+    if (content.name !== 'hidein') {
+            console.warning("Unknown content handler calling")
+            return
+    }
+    contentJs = content
+})
+
+chrome.action.onClicked.addListener(function(tab) {
+    if (contentJs) {
+        contentJs.postMessage({msg: 'Browser action clicked'})
+    }
+})
+``` 
+
+1. during startup we check for a `showbox` key. If it is false, or non existing, we execute the familiar hiding code.
+1. During toggling, we store the latest state to the local storage.
+
+The end result is then
+
+```JavaScript
+(function () {
+    const toggleBoxVisibility = () => {
+        const box = document.getElementById('msg-overlay')
+        if (!box) {
+            console.error("Message box does not exist, aborting")
+            return
+        }
+        if (box.style.display === 'none') {
+            box.style.display = 'flex'
+            chrome.storage.sync.set({showbox: true}, function() { });
+        } else {
+            box.style.display = 'none'
+            chrome.storage.sync.set({showbox: 0}, function() { });
+        }
+    }
+    const background = chrome.runtime.connect({ name: 'hidein' });
+    background.onMessage.addListener(function (msg) {
+        toggleBoxVisibility()
+    })
+    chrome.storage.sync.get(['showbox'], function(result) {
+        if (!result.showbox) {
+            let tries = 0
+            const hideBox = () => {
+                const box = document.getElementById('msg-overlay')
+                if (box) {
+                    box.style.display = 'none'
+                } else {
+                    if (++tries < 10) {
+                        setTimeout(hideBox, 1000)
+                    } else {
+                        console.warning(`Failed to hide messaging window after ${tries} tries`)
+                    }
+                }
+    
+            }
+            hideBox();
+        }
+    });
+
+})()
+``` 
+
+HTH. Have fun

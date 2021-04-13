@@ -7,7 +7,7 @@
         "matches": ["https://*.linkedin.com/*"],
         "js": ["js/content.js"]
     }],
-    "permissions": ["scripting"],
+    "permissions": ["scripting", "storage"],
     "background": {
         "service_worker": 
             "background.js"
